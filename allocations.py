@@ -10,7 +10,7 @@ TODO:
 import pandas as pd
 import os
 
-def read_allocations_input():
-	path = os.getcwd() + "/input/allocations.csv"
+def read_allocations_input(portfolio_type):
+	path = os.getcwd() + "/input/" + portfolio_type + "_input.csv"
 	df = pd.read_csv(path)
 	return df
