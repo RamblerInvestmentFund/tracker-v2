@@ -1,45 +1,14 @@
 ''' data.py
+
 This module fetches the relevant data for assets in the portfolio as well as assets to be tracked
 for the benchmark.
 
-TODO:
-    * write method for fetching asset data
-        * daily prices for given timeframe
-        * returns
-        * P/E
-            * Trailing
-            * Forward
-        * PEG
-        * P/B
-        * Beta
-        * Dividend yield
-    * write wrapper method for fetching specific asset data
-        * portfolio assets
-        * benchmark assets
 '''
 from allocations import read_allocations_input
 import pandas as pd
 import quandl
 
-# df = read_allocations_input()
-# print(df.head())
-
 quandl.ApiConfig.api_key = 'mRJDZwn3giwAm1kowtFr'
-
-''' Fields available for use from EOD Quandl request
- 0   Open        1 non-null      float64
- 1   High        1 non-null      float64
- 2   Low         1 non-null      float64
- 3   Close       1 non-null      float64
- 4   Volume      1 non-null      float64
- 5   Dividend    1 non-null      float64
- 6   Split       1 non-null      float64
- 7   Adj_Open    1 non-null      float64
- 8   Adj_High    1 non-null      float64
- 9   Adj_Low     1 non-null      float64
- 10  Adj_Close   1 non-null      float64
- 11  Adj_Volume  1 non-null      float64
- '''
 
 def fetch_asset_prices(ticker, start_date, end_date):
     """Function for fetching individual asset's relevant data for anaysis.
@@ -55,6 +24,22 @@ def fetch_asset_prices(ticker, start_date, end_date):
     """
     asset_data = quandl.get('EOD/' + ticker, start_date=start_date, end_date=end_date)
     return asset_data["Adj_Close"]
+
+def fetch_asset_fundamentals(ticker):
+    """Function for fetching company profile data for a given asset.
+
+    Args:
+        ticker (str): Ticker of asset of interest.
+
+    Returns:
+        : Pandas DataFrame with dividend yield, beta, forward pe, ttm pe, p/b, and peg
+
+    """
+    data = quandl.get_table('ZACKS/CP', m_ticker=ticker, ticker=ticker)
+    data = data[['div_yield', 'beta', 'pe_ratio_f1', 'pe_ratio_12m', 'price_book', 'peg_ratio']]
+    data["comp_name"] = ticker
+    data.set_index("comp_name", inplace=True)
+    return data
 
 def fetch_portfolio_prices(tickers, start_date, end_date):
     """Function for fetching historical closing prices of all tickers in portfolio.
@@ -74,5 +59,22 @@ def fetch_portfolio_prices(tickers, start_date, end_date):
         prices_df[ticker] = fetch_asset_prices(ticker, start_date, end_date)
     return prices_df
 
+def fetch_portfolio_fundamentals(tickers):
+    """Function for fetching company profile for a list of assets.
+
+    Args:
+        tickers (list): List of tickers of interest.
+
+    Returns:
+        : Pandas DataFrame with dividend yield, beta, forward pe, ttm pe, p/b, and peg
+
+    """
+    fun_df = pd.DataFrame()
+    for ticker in tickers:
+        fun_df = fun_df.append(fetch_asset_fundamentals(ticker))
+    return fun_df
+
 prices_df = fetch_portfolio_prices(['PENN', 'AAPL'], start_date='2020-02-03', end_date='2020-02-14')
-print(df)
+fun_df = fetch_portfolio_fundamentals(['SHOP', 'AAPL'])
+print(prices_df)
+print(fun_df)
