@@ -3,8 +3,10 @@
 This module fetches the relevant data for assets in the portfolio as well as assets to be tracked
 for the benchmark.
 
+TODO:
+    * write logic for handling non-US assets (LVMUY)
+
 '''
-from allocations import read_allocations_input
 import pandas as pd
 import quandl
 
@@ -73,8 +75,3 @@ def fetch_portfolio_fundamentals(tickers):
     for ticker in tickers:
         fun_df = fun_df.append(fetch_asset_fundamentals(ticker))
     return fun_df
-
-prices_df = fetch_portfolio_prices(['PENN', 'AAPL'], start_date='2020-02-03', end_date='2020-02-14')
-fun_df = fetch_portfolio_fundamentals(['SHOP', 'AAPL'])
-print(prices_df)
-print(fun_df)
