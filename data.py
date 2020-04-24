@@ -3,12 +3,11 @@
 This module fetches the relevant data for assets in the portfolio as well as assets to be tracked
 for the benchmark.
 
-TODO:
-    * write logic for handling non-US assets (LVMUY)
-
 '''
 import pandas as pd
 import quandl
+import requests
+import re
 
 quandl.ApiConfig.api_key = 'mRJDZwn3giwAm1kowtFr'
 
@@ -37,11 +36,16 @@ def fetch_asset_fundamentals(ticker):
         : Pandas DataFrame with dividend yield, beta, forward pe, ttm pe, p/b, and peg
 
     """
-    data = quandl.get_table('ZACKS/CP', m_ticker=ticker, ticker=ticker)
-    data = data[['div_yield', 'beta', 'pe_ratio_f1', 'pe_ratio_12m', 'price_book', 'peg_ratio']]
-    data["comp_name"] = ticker
-    data.set_index("comp_name", inplace=True)
-    return data
+    # data = quandl.get_table('ZACKS/CP', m_ticker=ticker, ticker=ticker)
+    # data = data[['div_yield', 'beta', 'pe_ratio_f1', 'pe_ratio_12m', 'price_book', 'peg_ratio']]
+    # data["comp_name"] = ticker
+    # data.set_index("comp_name", inplace=True)
+
+
+    url = 'https://finviz.com/quote.ashx?t=' + ticker
+    html = requests.get(url).text
+    return scrape_data(html)
+    # return data
 
 def fetch_portfolio_prices(tickers, start_date, end_date):
     """Function for fetching historical closing prices of all tickers in portfolio.
@@ -71,7 +75,40 @@ def fetch_portfolio_fundamentals(tickers):
         : Pandas DataFrame with dividend yield, beta, forward pe, ttm pe, p/b, and peg
 
     """
-    fun_df = pd.DataFrame()
+    fundamentals_df = pd.DataFrame()
     for ticker in tickers:
-        fun_df = fun_df.append(fetch_asset_fundamentals(ticker))
-    return fun_df
+        ticker_fundamentals = fetch_asset_fundamentals(ticker)
+        ticker_fundamentals["ticker"] = ticker
+        fundamentals_df = fundamentals_df.append(ticker_fundamentals, ignore_index=True)
+    fundamentals_df.set_index("ticker", inplace=True)
+    return fundamentals_df
+
+def scrape_data(html):
+    """Function for scraping finviz html content.
+
+    Args:
+        html (string): html from finviz web request.
+
+    Returns:
+        : Dictionary with P/E, Forward P/E, PEG, P/B, Beta, Dividend %, and Dividend Yield
+
+    """
+    fundamentals = {}
+    pattern = "(\d+\.\d{1,3})"
+    fundamentals_list = ["P/E", "Forward P/E", "PEG", "P/B", "Beta", "Dividend %"]
+
+    for fundamental in fundamentals_list:
+        sequence = None
+        try:
+            if fundamental != "Forward P/E":
+                sequence = html.split(fundamental + "</")[1].split("</b></td>")[0]
+            else:
+                sequence = html.split(fundamental + "</")[1].split("/span></b>")[0]
+            fundamentals[fundamental] = re.findall(pattern, sequence)[0]
+        except IndexError:
+            fundamentals[fundamental] = None
+    if fundamentals["Dividend %"] and fundamentals["Dividend %"] is not None:
+        fundamentals["Dividend Yield"] = float(fundamentals["Dividend %"][0]) / 10
+    else:
+        fundamentals["Dividend Yield"] = None
+    return fundamentals
